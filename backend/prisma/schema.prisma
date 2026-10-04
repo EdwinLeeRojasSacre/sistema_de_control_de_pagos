@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model audit_logs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String?  @db.Uuid
+  entity_name String   @db.VarChar(150)
+  entity_id   String?  @db.Uuid
+  action      String   @db.VarChar(50)
+  old_value   Json?
+  new_value   Json?
+  ip_address  String?  @db.VarChar(100)
+  device_name String?  @db.VarChar(200)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  users       users?   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_audit_user")
+
+  @@index([entity_name, entity_id], map: "idx_audit_logs_entity")
+}
+
+model classrooms {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_period_id   String           @db.Uuid
+  education_level_id String           @db.Uuid
+  shift_id           String           @db.Uuid
+  name               String           @db.VarChar(150)
+  capacity           Int?
+  is_active          Boolean          @default(true)
+  school_periods     school_periods   @relation(fields: [school_period_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_classroom_period")
+  education_levels   education_levels @relation(fields: [education_level_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_classroom_level")
+  shifts             shifts           @relation(fields: [shift_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_classroom_shift")
+  enrollments        enrollments[]
+
+  @@unique([school_period_id, education_level_id, shift_id, name], map: "uq_classroom")
+  @@index([school_period_id], map: "idx_classrooms_period")
+}
+
+model education_cycles {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String             @unique @db.VarChar(50)
+  name             String             @db.VarChar(100)
+  education_levels education_levels[]
+}
+
+model education_levels {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cycle_id         String           @db.Uuid
+  name             String           @db.VarChar(100)
+  min_age_months   Int?
+  max_age_months   Int?
+  is_active        Boolean          @default(true)
+  classrooms       classrooms[]
+  education_cycles education_cycles @relation(fields: [cycle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_level_cycle")
+}
+
+model enrollments {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_id       String         @db.Uuid
+  school_period_id String         @db.Uuid
+  classroom_id     String         @db.Uuid
+  enrollment_date  DateTime       @db.Date
+  status           String         @db.VarChar(30)
+  created_at       DateTime       @default(now()) @db.Timestamp(6)
+  classrooms       classrooms     @relation(fields: [classroom_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_enrollment_classroom")
+  school_periods   school_periods @relation(fields: [school_period_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_enrollment_period")
+  students         students       @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_enrollment_student")
+
+  @@unique([student_id, school_period_id], map: "uq_enrollment")
+  @@index([student_id], map: "idx_enrollments_student")
+}
+
+model family_groups {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                  String?                 @unique @db.VarChar(50)
+  name                  String                  @db.VarChar(200)
+  observations          String?
+  is_active             Boolean                 @default(true)
+  created_at            DateTime                @default(now()) @db.Timestamp(6)
+  updated_at            DateTime                @default(now()) @db.Timestamp(6)
+  family_members        family_members[]
+  payments              payments[]
+  payment_family_items  payment_family_items[]
+  payment_student_items payment_student_items[]
+}
+
+model family_members {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  family_group_id   String        @db.Uuid
+  person_id         String        @db.Uuid
+  relationship_type String        @db.VarChar(50)
+  is_guardian       Boolean       @default(false)
+  created_at        DateTime      @default(now()) @db.Timestamp(6)
+  family_groups     family_groups @relation(fields: [family_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_family_member_family")
+  persons           persons       @relation(fields: [person_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_family_member_person")
+
+  @@unique([family_group_id, person_id], map: "uq_family_member")
+}
+
+model payments {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_period_id      String                  @db.Uuid
+  family_group_id       String                  @db.Uuid
+  registered_by_user_id String                  @db.Uuid
+  payment_date          DateTime                @db.Date
+  operation_number      String?                 @db.VarChar(100)
+  observations          String?
+  created_at            DateTime                @default(now()) @db.Timestamp(6)
+  school_periods        school_periods          @relation(fields: [school_period_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_period")
+  family_groups         family_groups           @relation(fields: [family_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_family")
+  users                 users                   @relation(fields: [registered_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_user")
+  family_items          payment_family_items[]
+  student_items         payment_student_items[]
+  vouchers              vouchers[]
+
+  @@unique([id, school_period_id, family_group_id], map: "uq_payment_scope")
+  @@index([school_period_id], map: "idx_payments_period")
+  @@index([family_group_id], map: "idx_payments_family")
+  @@index([registered_by_user_id], map: "idx_payments_registered_by")
+  @@index([payment_date], map: "idx_payments_date")
+}
+
+model payment_family_items {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_id           String                 @db.Uuid
+  school_period_id     String                 @db.Uuid
+  family_group_id      String                 @db.Uuid
+  created_at           DateTime               @default(now()) @db.Timestamp(6)
+  payments             payments               @relation(fields: [payment_id, school_period_id, family_group_id], references: [id, school_period_id, family_group_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_family_item_payment")
+  school_periods       school_periods         @relation(fields: [school_period_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_family_item_period")
+  family_groups        family_groups          @relation(fields: [family_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_family_item_family")
+  voucher_family_items voucher_family_items[]
+
+  @@unique([school_period_id, family_group_id], map: "uq_apafa_period_family")
+  @@unique([id, payment_id], map: "uq_payment_family_item_payment_scope")
+  @@index([payment_id], map: "idx_payment_family_items_payment")
+  @@index([family_group_id], map: "idx_payment_family_items_family")
+}
+
+model payment_student_items {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_id            String                  @db.Uuid
+  school_period_id      String                  @db.Uuid
+  family_group_id       String                  @db.Uuid
+  student_id            String                  @db.Uuid
+  created_at            DateTime                @default(now()) @db.Timestamp(6)
+  payments              payments                @relation(fields: [payment_id, school_period_id, family_group_id], references: [id, school_period_id, family_group_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_student_item_payment")
+  school_periods        school_periods          @relation(fields: [school_period_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_student_item_period")
+  family_groups         family_groups           @relation(fields: [family_group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_student_item_family")
+  students              students                @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_payment_student_item_student")
+  voucher_student_items voucher_student_items[]
+
+  @@unique([school_period_id, student_id], map: "uq_taller_period_student")
+  @@unique([id, payment_id], map: "uq_payment_student_item_payment_scope")
+  @@index([payment_id], map: "idx_payment_student_items_payment")
+  @@index([family_group_id], map: "idx_payment_student_items_family")
+  @@index([student_id], map: "idx_payment_student_items_student")
+}
+
+model voucher_family_items {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  voucher_id             String               @db.Uuid
+  payment_id             String               @db.Uuid
+  payment_family_item_id String               @db.Uuid
+  created_at             DateTime             @default(now()) @db.Timestamp(6)
+  vouchers               vouchers             @relation(fields: [voucher_id, payment_id], references: [id, payment_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_voucher_family_item_voucher")
+  payment_family_items   payment_family_items @relation(fields: [payment_family_item_id, payment_id], references: [id, payment_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_voucher_family_item_family_item")
+
+  @@unique([voucher_id, payment_family_item_id], map: "uq_voucher_family_item")
+  @@index([voucher_id], map: "idx_voucher_family_items_voucher")
+  @@index([payment_family_item_id], map: "idx_voucher_family_items_item")
+  @@index([payment_id], map: "idx_voucher_family_items_payment")
+}
+
+model voucher_student_items {
+  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  voucher_id              String                @db.Uuid
+  payment_id              String                @db.Uuid
+  payment_student_item_id String                @db.Uuid
+  created_at              DateTime              @default(now()) @db.Timestamp(6)
+  vouchers                vouchers              @relation(fields: [voucher_id, payment_id], references: [id, payment_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_voucher_student_item_voucher")
+  payment_student_items   payment_student_items @relation(fields: [payment_student_item_id, payment_id], references: [id, payment_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_voucher_student_item_student_item")
+
+  @@unique([voucher_id, payment_student_item_id], map: "uq_voucher_student_item")
+  @@index([voucher_id], map: "idx_voucher_student_items_voucher")
+  @@index([payment_student_item_id], map: "idx_voucher_student_items_item")
+  @@index([payment_id], map: "idx_voucher_student_items_payment")
+}
+
+model persons {
+  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  document_type                String                         @db.VarChar(20)
+  document_number              String?                        @db.VarChar(20)
+  first_name                   String                         @db.VarChar(150)
+  last_name_father             String?                        @db.VarChar(150)
+  last_name_mother             String?                        @db.VarChar(150)
+  birth_date                   DateTime?                      @db.Date
+  gender                       String?                        @db.VarChar(20)
+  phone                        String?                        @db.VarChar(30)
+  email                        String?                        @db.VarChar(200)
+  address                      String?
+  is_active                    Boolean                        @default(true)
+  created_at                   DateTime                       @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime                       @default(now()) @db.Timestamp(6)
+  family_members               family_members[]
+  student_person_relationships student_person_relationships[]
+  students                     students?
+  users                        users?
+
+  @@unique([document_type, document_number], map: "uq_person_document")
+  @@index([document_number], map: "idx_person_document")
+}
+
+model roles {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @default(now()) @db.Timestamp(6)
+  users       users[]
+}
+
+model school_periods {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  year                  Int                     @unique
+  start_date            DateTime                @db.Date
+  end_date              DateTime                @db.Date
+  status                String                  @db.VarChar(30)
+  is_active             Boolean                 @default(true)
+  created_at            DateTime                @default(now()) @db.Timestamp(6)
+  updated_at            DateTime                @default(now()) @db.Timestamp(6)
+  classrooms            classrooms[]
+  enrollments           enrollments[]
+  payments              payments[]
+  payment_family_items  payment_family_items[]
+  payment_student_items payment_student_items[]
+}
+
+model shifts {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String       @unique @db.VarChar(30)
+  name       String       @db.VarChar(100)
+  classrooms classrooms[]
+}
+
+model student_person_relationships {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_id        String   @db.Uuid
+  person_id         String   @db.Uuid
+  relationship_type String   @db.VarChar(50)
+  is_guardian       Boolean  @default(false)
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+  persons           persons  @relation(fields: [person_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_spr_person")
+  students          students @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_spr_student")
+
+  @@unique([student_id, person_id, relationship_type], map: "uq_student_person_relation")
+}
+
+model students {
+  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  person_id                    String                         @unique @db.Uuid
+  student_code                 String?                        @db.VarChar(50)
+  is_active                    Boolean                        @default(true)
+  created_at                   DateTime                       @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime                       @default(now()) @db.Timestamp(6)
+  enrollments                  enrollments[]
+  payment_student_items        payment_student_items[]
+  student_person_relationships student_person_relationships[]
+  persons                      persons                        @relation(fields: [person_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_student_person")
+
+  @@index([person_id], map: "idx_students_person")
+}
+
+model users {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  person_id            String       @unique @db.Uuid
+  role_id              String       @db.Uuid
+  username             String       @unique @db.VarChar(100)
+  password_hash        String
+  must_change_password Boolean      @default(false)
+  password_changed_at  DateTime?    @db.Timestamp(6)
+  last_login           DateTime?    @db.Timestamp(6)
+  is_active            Boolean      @default(true)
+  created_at           DateTime     @default(now()) @db.Timestamp(6)
+  updated_at           DateTime     @default(now()) @db.Timestamp(6)
+  audit_logs           audit_logs[]
+  payments             payments[]
+  persons              persons      @relation(fields: [person_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_person")
+  roles                roles        @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_role")
+}
+
+model vouchers {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_id            String                  @db.Uuid
+  original_name         String                  @db.VarChar(255)
+  physical_name         String                  @db.VarChar(255)
+  file_path             String
+  mime_type             String?                 @db.VarChar(100)
+  file_size             BigInt?
+  file_hash             String?
+  uploaded_at           DateTime                @default(now()) @db.Timestamp(6)
+  payments              payments                @relation(fields: [payment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_voucher_payment")
+  voucher_family_items  voucher_family_items[]
+  voucher_student_items voucher_student_items[]
+
+  @@unique([id, payment_id], map: "uq_voucher_payment_scope")
+  @@index([payment_id], map: "idx_vouchers_payment")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model document_sequences {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  document_type  String   @db.VarChar(50)
+  period_year    Int
+  current_number Int      @default(0)
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+  updated_at     DateTime @default(now()) @db.Timestamp(6)
+
+  @@unique([document_type, period_year], map: "uq_document_sequence")
+  @@index([document_type, period_year], map: "idx_document_sequences_type_year")
+}
