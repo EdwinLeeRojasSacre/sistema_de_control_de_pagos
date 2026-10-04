@@ -7,6 +7,25 @@ import { getEnrollmentOptions, getEnrollments } from '@/services/enrollments.ser
 import type { Enrollment, EnrollmentOptions } from '@/types/enrollments';
 import { getSchoolPeriodStatusLabel } from '@/lib/school-period-status';
 
+function getInitialSchoolPeriodId(
+  periods: EnrollmentOptions['schoolPeriods'],
+  currentYear = new Date().getFullYear(),
+) {
+  const currentPeriod = periods.find((period) => period.year === currentYear);
+  if (currentPeriod) return currentPeriod.id;
+
+  const closestOpenPeriod = periods
+    .filter((period) => period.status === 'OPEN')
+    .reduce<(typeof periods)[number] | undefined>((closest, period) => {
+      if (!closest) return period;
+      return Math.abs(period.year - currentYear) < Math.abs(closest.year - currentYear)
+        ? period
+        : closest;
+    }, undefined);
+
+  return closestOpenPeriod?.id ?? periods[0]?.id ?? '';
+}
+
 export default function EnrollmentsPage() {
   const [rows, setRows] = useState<Enrollment[]>([]);
   const [options, setOptions] = useState<EnrollmentOptions | null>(null);
@@ -46,7 +65,7 @@ export default function EnrollmentsPage() {
       .then(async (data) => {
         if (!active) return;
         setOptions(data);
-        const initial = data.schoolPeriods.find((item) => item.status === 'OPEN')?.id ?? '';
+        const initial = getInitialSchoolPeriodId(data.schoolPeriods);
         setPeriodId(initial);
         await load(initial, '');
       })
