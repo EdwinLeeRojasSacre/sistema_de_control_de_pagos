@@ -1,0 +1,51 @@
+# Dependencias y compilación
+**/node_modules/
+**/.next/
+**/dist/
+**/coverage/
+**/*.tsbuildinfo
+**/.turbo/
+**/.cache/
+
+# Variables y secretos (los ejemplos sí se versionan)
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Logs y procesos
+*.log
+*.pid
+*.pid.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+
+# Temporales, respaldos y artefactos locales
+tmp/
+**/tmp/
+backups/
+files/
+*.bak
+*.dump
+*.sqlite
+*.sqlite3
+*.zip
+backend/prisma/schema.before-*.prisma
+backend/scripts/demo-seed.mjs
+
+# Storage runtime sensible
+backend/storage/vouchers/*
+!backend/storage/vouchers/.gitkeep
+
+# Scripts SQL locales con seeds/datos: revisar y sanear antes de publicar
+/database/
