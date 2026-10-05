@@ -1,6 +1,6 @@
 # Instalación
 
-Guía de desarrollo local del Sistema de Control de Pagos 1.0.0.
+Guía de desarrollo local del Sistema de Control de Pagos 1.0.0. Para equipos de usuario final use el instalador Windows descrito en `INSTALLER.md`; no requiere Node.js ni npm global.
 
 ## Prerrequisitos
 
@@ -105,8 +105,7 @@ npm run start
 | --- | --- |
 | Falla al iniciar por `JWT_SECRET` | Configure una clave larga y aleatoria en `backend/.env`. |
 | Prisma no conecta | Revise host, puerto, base, usuario, contraseña y `schema=sgpe` en `DATABASE_URL`. |
-| Error CORS | En el código actual el backend admite `http://localhost:3000`; otro origen requiere configuración de despliegue. |
+| Error CORS | Revise `FRONTEND_ORIGIN`; por defecto admite `http://localhost:3000`. |
 | El frontend no llega a la API | Revise `NEXT_PUBLIC_API_URL` y reinicie Next.js tras cambiarla. |
 | No se puede abrir un voucher | Compruebe `VOUCHER_STORAGE_PATH`, permisos y persistencia del archivo físico. |
 | `next/font` falla en build | El build necesita acceso a Google Fonts mientras se mantenga la configuración actual de Geist. |
-

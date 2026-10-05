@@ -56,6 +56,20 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
+  it('/health (GET) is public and reports PostgreSQL availability', async () => {
+    vi.spyOn(prisma, '$queryRaw').mockResolvedValue([{ result: 1 }] as never);
+
+    const response = await request(app.getHttpServer())
+      .get('/health')
+      .expect(200);
+
+    expect(response.body).toEqual({
+      status: 'ok',
+      database: 'ok',
+      version: '1.0.0',
+    });
+  });
+
   it('/users (GET) rejects a request without JWT', () => {
     return request(app.getHttpServer()).get('/users').expect(401);
   });

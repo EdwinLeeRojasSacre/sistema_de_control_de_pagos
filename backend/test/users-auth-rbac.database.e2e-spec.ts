@@ -7,8 +7,9 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { assertE2eDatabaseName } from './e2e-database.guard.js';
 
-describe.sequential('Users + Auth + RBAC against sgpe_dev', () => {
+describe.sequential('Users + Auth + RBAC against isolated E2E database', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   const runId = randomUUID().slice(0, 8);
@@ -77,10 +78,7 @@ describe.sequential('Users + Auth + RBAC against sgpe_dev', () => {
     const [database] = await prisma.$queryRaw<
       Array<{ current_database: string }>
     >`SELECT current_database()`;
-    if (database?.current_database !== 'sgpe_dev')
-      throw new Error(
-        `Database E2E bloqueada: ${database?.current_database ?? 'desconocida'}`,
-      );
+    assertE2eDatabaseName(database?.current_database ?? '');
     roleActivitySnapshot = await prisma.roles.findMany({
       where: { code: { in: ['ADMINISTRADOR', 'SECRETARIA', 'DIRECCION'] } },
       select: { id: true, name: true, is_active: true },

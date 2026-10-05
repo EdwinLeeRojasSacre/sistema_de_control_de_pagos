@@ -19,6 +19,7 @@
 *.log
 *.pid
 *.pid.lock
+*.pid.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -34,6 +35,9 @@ Desktop.ini
 tmp/
 **/tmp/
 backups/
+artifacts/
+runtime/
+**/runtime/
 files/
 *.bak
 *.dump
@@ -49,3 +53,12 @@ backend/storage/vouchers/*
 
 # Scripts SQL locales con seeds/datos: revisar y sanear antes de publicar
 /database/
+
+# Configuración productiva real (las plantillas sí se versionan)
+scripts/production/config/backend.env
+scripts/production/production.config.psd1
+
+# Binarios de terceros y salidas del instalador (reproducibles por scripts)
+installer/vendor/
+installer/output/
+installer/build-output/
