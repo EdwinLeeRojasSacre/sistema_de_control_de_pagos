@@ -1,0 +1,25 @@
+<service>
+  <id>{{SERVICE_ID}}</id>
+  <name>{{DISPLAY_NAME}}</name>
+  <description>Interfaz web local del Sistema de Control de Pagos.</description>
+  <executable>{{NODE_EXECUTABLE}}</executable>
+  <arguments>"{{APPLICATION_ROOT}}\frontend\server.js"</arguments>
+  <workingdirectory>{{APPLICATION_ROOT}}\frontend</workingdirectory>
+  <env name="NODE_ENV" value="production" />
+  <env name="PORT" value="{{FRONTEND_PORT}}" />
+  <env name="HOSTNAME" value="127.0.0.1" />
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <serviceaccount>
+    <username>NT AUTHORITY\LocalService</username>
+  </serviceaccount>
+  <depend>{{BACKEND_SERVICE_ID}}</depend>
+  <logpath>{{DATA_ROOT}}\logs\frontend</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+  <onfailure action="restart" delay="10 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>20 sec</stoptimeout>
+</service>

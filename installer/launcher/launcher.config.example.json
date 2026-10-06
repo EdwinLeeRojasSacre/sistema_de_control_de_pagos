@@ -1,0 +1,9 @@
+{
+  "BackendHealthUrl": "http://localhost:3001/health",
+  "FrontendUrl": "http://localhost:3000/login",
+  "BackendServiceName": "SistemaControlPagosBackend",
+  "FrontendServiceName": "SistemaControlPagosFrontend",
+  "TimeoutSeconds": 60,
+  "OpenBrowser": true,
+  "DataRoot": "C:\\ProgramData\\SistemaControlPagos"
+}

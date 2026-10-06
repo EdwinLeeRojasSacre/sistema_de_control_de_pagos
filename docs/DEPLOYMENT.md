@@ -1,90 +1,36 @@
-# Despliegue
+# Despliegue productivo local en Windows
 
-Esta guía describe condiciones técnicas; no prescribe proveedor cloud porque el proyecto no tiene uno definido.
+La distribución 1.0.0 se genera como `SistemaControlPagos-Setup-1.0.0.exe` para Windows 10/11 x64. El usuario final no necesita Node.js, npm, VS Code ni PowerShell: Node.js 24.20.0 LTS va incluido.
 
-## Desarrollo local
+## Layout instalado
 
-- Next.js: `npm run dev`, normalmente en `localhost:3000`.
-- NestJS: `npm run start:dev`, por defecto en `localhost:3001`.
-- PostgreSQL local o accesible por red privada.
-- Vouchers en `backend/storage/vouchers` o `VOUCHER_STORAGE_PATH`.
+```text
+C:\Program Files\Sistema de Control de Pagos\
+  backend\
+  frontend\
+  runtime\node\node.exe
+  services\
+  scripts\
+  SistemaControlPagos.exe
 
-Consulte [INSTALLATION.md](INSTALLATION.md) para el procedimiento completo.
-
-## Producción
-
-### Componentes
-
-1. Proceso frontend construido con `npm run build` y servido con `npm run start`.
-2. Proceso backend construido con `npm run build` y servido con `npm run start:prod`.
-3. PostgreSQL administrado y respaldado.
-4. Volumen persistente y privado para vouchers.
-5. Terminación HTTPS y proxy/reverse proxy si corresponde a la plataforma elegida.
-
-### Variables
-
-- Backend: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `VOUCHER_STORAGE_PATH`.
-- Frontend: `NEXT_PUBLIC_API_URL`.
-
-Use un gestor de secretos; no incluya `.env` en imágenes, artefactos o repositorios. `NEXT_PUBLIC_API_URL` es pública por diseño y se integra durante build/runtime de Next.js según el despliegue.
-
-### Preparación
-
-```bash
-cd backend
-npm ci
-npx --no-install prisma validate
-npx --no-install prisma generate
-npx --no-install prisma migrate deploy
-npm run build
+C:\ProgramData\SistemaControlPagos\
+  config\backend.env
+  storage\vouchers\
+  logs\backend\
+  logs\frontend\
+  backups\
 ```
 
-```bash
-cd frontend
-npm ci
-npm run build
-```
+Los servicios `SistemaControlPagosBackend` y `SistemaControlPagosFrontend` arrancan automáticamente como `LocalService`. WinSW rota logs, reinicia ante fallos y declara la dependencia del frontend respecto del backend. El launcher espera `/health` y la portada antes de abrir `http://127.0.0.1:3000/login`.
 
-Ejecute las migraciones una sola vez por despliegue, con una identidad de base limitada y después de un respaldo. No ejecute `demo:seed`.
+## PostgreSQL
 
-### Seguridad de red
+Fase 2 usa una instalación PostgreSQL existente. El asistente solicita ruta `bin`, host, puerto, base, usuario y password; crea `sistema_control_pagos` si no existe y aplica `prisma migrate deploy` sobre el esquema `sgpe`. No se incluye ni instala PostgreSQL silenciosamente.
 
-- Exponer públicamente solo HTTPS.
-- Mantener PostgreSQL y storage fuera del acceso público.
-- Generar `JWT_SECRET` largo, aleatorio y distinto por ambiente.
-- Restringir CORS al origen real del frontend. El código actual fija `http://localhost:3000`; debe resolverse explícitamente antes de un despliegue no local.
-- Aplicar límites de request también en el proxy, considerando el máximo actual de 10 vouchers de 10 MiB.
+Los puertos 3000/3001 se validan sin terminar procesos. Si pertenecen a otra aplicación, la instalación se detiene. `NEXT_PUBLIC_API_URL` queda integrado al bundle como `http://localhost:3001`.
 
-### Storage y backup
+## Build
 
-`VOUCHER_STORAGE_PATH` debe apuntar a un volumen persistente, escribible por el backend y no servido directamente por el servidor web. Respaldar conjuntamente:
+`installer/build/Build-Installer.ps1` verifica checksums de Node/WinSW, construye el staging, compila el launcher y ejecuta Inno Setup 7.1.0. Los artefactos, runtimes descargados, secretos y Setup se ignoran en Git.
 
-- PostgreSQL;
-- archivos de vouchers;
-- configuración de despliegue y secretos mediante el mecanismo seguro elegido.
-
-Una restauración debe mantener coherencia entre filas `vouchers.file_path` y archivos físicos. Pruebe periódicamente restauraciones, no solo creación de backups.
-
-### Operación
-
-- Ejecutar frontend y backend mediante el supervisor de procesos de la plataforma elegida.
-- Capturar stdout/stderr sin registrar tokens, contraseñas ni contenido personal.
-- Configurar rotación y retención de logs.
-- Supervisar disponibilidad HTTP, espacio del volumen, conexiones PostgreSQL y errores de migración.
-- Conservar trazabilidad de despliegues y un procedimiento de rollback que no revierta migraciones destructivamente.
-
-### Observabilidad
-
-El backend inicializa `@nestjs/observe`, pero las credenciales del módulo están actualmente como placeholders en código. Antes de usarlo en producción debe definirse una configuración segura; no publique claves reales ni suponga que la telemetría está operativa.
-
-## Lista previa a salida
-
-- Builds y pruebas aprobados en el commit a desplegar.
-- CORS ajustado al dominio real.
-- HTTPS habilitado.
-- Variables y secretos cargados fuera de Git.
-- Migraciones y respaldo verificados.
-- Storage persistente montado y con permisos mínimos.
-- Primera cuenta institucional provisionada de forma controlada.
-- Política de logs, backup, restauración y monitoreo aprobada.
-
+Consulte [INSTALLER.md](INSTALLER.md), [OPERATIONS.md](OPERATIONS.md), [UPGRADE.md](UPGRADE.md) y [TROUBLESHOOTING.md](TROUBLESHOOTING.md).

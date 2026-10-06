@@ -1,0 +1,22 @@
+<service>
+  <id>{{SERVICE_ID}}</id>
+  <name>{{DISPLAY_NAME}}</name>
+  <description>API local del Sistema de Control de Pagos.</description>
+  <executable>{{NODE_EXECUTABLE}}</executable>
+  <arguments>--env-file="{{DATA_ROOT}}\config\backend.env" "{{APPLICATION_ROOT}}\backend\dist\main.js"</arguments>
+  <workingdirectory>{{APPLICATION_ROOT}}\backend</workingdirectory>
+  <env name="NODE_ENV" value="production" />
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <serviceaccount>
+    <username>NT AUTHORITY\LocalService</username>
+  </serviceaccount>
+  <logpath>{{DATA_ROOT}}\logs\backend</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+  <onfailure action="restart" delay="10 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>20 sec</stoptimeout>
+</service>
