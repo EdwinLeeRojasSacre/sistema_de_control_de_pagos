@@ -77,6 +77,8 @@ npm run dev
 
 Por defecto, el frontend usa `http://localhost:3000` y la API `http://localhost:3001`.
 
+Para un equipo Windows de usuario final, distribuya `SistemaControlPagos-Setup-1.0.0.exe`. El instalador incorpora Node.js, registra servicios automáticos, configura una base PostgreSQL existente y crea el primer administrador sin credenciales predeterminadas. Consulte [Instalador Windows](docs/INSTALLER.md).
+
 ## Validación
 
 ```bash
@@ -104,6 +106,15 @@ Los E2E con base de datos crean información temporal y contienen una protecció
 - [Reglas de negocio](docs/BUSINESS_RULES.md)
 - [Pruebas](docs/TESTING.md)
 - [Despliegue](docs/DEPLOYMENT.md)
+- [Diseño del instalador Windows](docs/INSTALLER.md)
+- [Operación local](docs/OPERATIONS.md)
+- [Backup y restauración](docs/BACKUP_RESTORE.md)
+- [Actualizaciones](docs/UPGRADE.md)
+- [Seguridad](docs/SECURITY.md)
+- [Checklist de producción](docs/PRODUCTION_CHECKLIST.md)
 - [Historial de cambios](CHANGELOG.md)
+- [Desinstalación](docs/UNINSTALL.md)
+- [Solución de problemas](docs/TROUBLESHOOTING.md)
+- [Avisos de terceros](THIRD_PARTY_NOTICES.md)
 
 La licencia del proyecto aún no ha sido definida por su propietario.

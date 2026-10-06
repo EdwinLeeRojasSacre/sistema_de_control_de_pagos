@@ -2,13 +2,16 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 import { access, unlink } from 'node:fs/promises';
+import { request as httpRequest } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { assertE2eDatabaseName } from './e2e-database.guard.js';
 
-describe.sequential('Payment voucher rules against sgpe_dev', () => {
+describe.sequential('Payment voucher rules against isolated E2E database', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   const runId = randomUUID().slice(0, 8);
@@ -23,6 +26,7 @@ describe.sequential('Payment voucher rules against sgpe_dev', () => {
   let voucherId = '';
   let otherVoucherId = '';
   let paymentDate = '';
+  let applicationPort = 0;
 
   const auth = () => ({ Authorization: `Bearer ${token}` });
   const pdf = () => Buffer.from('%PDF-1.4 E2E SGPE voucher');
@@ -43,9 +47,11 @@ describe.sequential('Payment voucher rules against sgpe_dev', () => {
     app = module.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
     await app.init();
+    await app.listen(0, '127.0.0.1');
+    applicationPort = (app.getHttpServer().address() as AddressInfo).port;
     prisma = app.get(PrismaService);
     const [database] = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
-    if (database?.current_database !== 'sgpe_dev') throw new Error(`Database E2E bloqueada: ${database?.current_database ?? 'desconocida'}`);
+    assertE2eDatabaseName(database?.current_database ?? '');
 
     const role = await prisma.roles.findUniqueOrThrow({ where: { code: 'ADMINISTRADOR' } });
     const person = await prisma.persons.create({ data: { document_type: 'E2E', document_number: `${runId}-pay`, first_name: 'Payment E2E' } });
@@ -82,7 +88,7 @@ describe.sequential('Payment voucher rules against sgpe_dev', () => {
     await app?.close();
   });
 
-  it('confirms sgpe_dev has no pre-existing invalid voucher associations', async () => {
+  it('confirms the isolated database has no pre-existing invalid voucher associations', async () => {
     const [result] = await prisma.$queryRaw<Array<{
       empty_vouchers: bigint;
       duplicate_family_items: bigint;
@@ -120,6 +126,59 @@ describe.sequential('Payment voucher rules against sgpe_dev', () => {
     expect(await prisma.payments.count({ where: { family_group_id: familyId } })).toBe(0);
   });
 
+  it('rejects invalid and oversized multipart vouchers without persistence', async () => {
+    await postPayment([{ includeApafa: true, studentIds: [] }], 0)
+      .attach('vouchers', Buffer.from('not a voucher'), {
+        filename: `e2e-${runId}.exe`,
+        contentType: 'application/octet-stream',
+      })
+      .expect(415);
+
+    await postPayment([{ includeApafa: true, studentIds: [] }], 0)
+      .attach('vouchers', Buffer.alloc(10 * 1024 * 1024 + 1), {
+        filename: `e2e-${runId}-oversized.pdf`,
+        contentType: 'application/pdf',
+      })
+      .expect(413);
+
+    expect(await prisma.payments.count({ where: { family_group_id: familyId } })).toBe(0);
+    expect(await prisma.vouchers.count()).toBe(0);
+  });
+
+  it('does not persist a partially aborted multipart upload', async () => {
+    const boundary = `sgpe-e2e-${runId}`;
+    const partialBody = Buffer.from(
+      `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="vouchers"; filename="aborted.pdf"\r\n' +
+        'Content-Type: application/pdf\r\n\r\n' +
+        '%PDF-1.4 partial upload',
+    );
+
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, 1000);
+      const upload = httpRequest({
+        host: '127.0.0.1',
+        port: applicationPort,
+        path: '/payments',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': partialBody.length + 4096,
+        },
+      });
+      upload.on('error', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      upload.write(partialBody, () => upload.destroy());
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(await prisma.payments.count({ where: { family_group_id: familyId } })).toBe(0);
+    expect(await prisma.vouchers.count()).toBe(0);
+  });
+
   it('creates a fully covered payment and persists one association', async () => {
     const response = await postPayment([{ includeApafa: true, studentIds: [] }]);
     expect(response.status, JSON.stringify(response.body)).toBe(201);
@@ -128,6 +187,19 @@ describe.sequential('Payment voucher rules against sgpe_dev', () => {
     const voucher = await prisma.vouchers.findFirstOrThrow({ where: { payment_id: paymentId } });
     voucherId = voucher.id;
     expect(await prisma.voucher_family_items.count({ where: { voucher_id: voucher.id } })).toBe(1);
+
+    const view = await request(app.getHttpServer())
+      .get(`/payments/${paymentId}/vouchers/${voucherId}/file?mode=view`)
+      .set(auth())
+      .expect(200);
+    expect(view.headers['content-type']).toContain('application/pdf');
+    expect(view.headers['content-disposition']).toContain('inline');
+
+    const download = await request(app.getHttpServer())
+      .get(`/payments/${paymentId}/vouchers/${voucherId}/file?mode=download`)
+      .set(auth())
+      .expect(200);
+    expect(download.headers['content-disposition']).toContain('attachment');
   });
 
   it('allows own PATCH, rejects conflict with another voucher, and rejects empty PATCH', async () => {

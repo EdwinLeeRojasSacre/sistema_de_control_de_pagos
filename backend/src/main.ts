@@ -1,21 +1,24 @@
+import 'dotenv/config';
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
 import {
   AppModule,
   ObserveInstrument,
+  isObserveConfigured,
 } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(
     AppModule,
-    {
-      instrument: ObserveInstrument,
-    },
+    isObserveConfigured()
+      ? { instrument: ObserveInstrument }
+      : undefined,
   );
 
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000',
     credentials: true,
   });
 

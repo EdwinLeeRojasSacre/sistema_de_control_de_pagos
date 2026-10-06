@@ -1,0 +1,9 @@
+{
+  "name": "sgpe-migration-tools",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "prisma": "6.16.2"
+  }
+}
